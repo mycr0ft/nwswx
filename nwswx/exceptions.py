@@ -1,0 +1,2 @@
+class NwsApiError(Exception):
+    pass

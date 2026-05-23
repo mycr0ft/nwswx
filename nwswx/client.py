@@ -3,7 +3,10 @@ from typing import Any
 
 import requests
 
+from nwswx.exceptions import NwsApiError
+
 BASE_URL = "https://api.weather.gov"
+REQUEST_TIMEOUT = 15
 
 
 @dataclass
@@ -32,8 +35,11 @@ def _extract_id(url: str) -> str:
 
 def get_point(lat: float, lon: float) -> NwsPoint:
     url = f"{BASE_URL}/points/{lat},{lon}"
-    resp = requests.get(url, headers={"User-Agent": "nwswx/0.1.0"})
-    resp.raise_for_status()
+    try:
+        resp = requests.get(url, headers={"User-Agent": "nwswx/0.1.0"}, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise NwsApiError(f"Failed to get location data from NWS: {e}") from e
     data = resp.json()
     props = data["properties"]
 

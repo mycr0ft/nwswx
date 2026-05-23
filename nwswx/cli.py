@@ -5,6 +5,7 @@ import sys
 
 from nwswx.alerts import get_relevant_alerts
 from nwswx.client import get_point
+from nwswx.exceptions import NwsApiError
 from nwswx.forecast import get_forecast, summarize_forecast
 from nwswx.geocode import GeocodeError, geocode
 
@@ -68,14 +69,22 @@ def _show_summary(lat: float, lon: float, celsius: bool = False) -> None:
 
 
 def _show_alerts(lat: float, lon: float) -> None:
-    alerts = get_relevant_alerts(lat, lon)
-    if not alerts:
+    results = get_relevant_alerts(lat, lon)
+    if not results:
         print("No active alerts for this location.")
         return
-    for a in alerts:
+    for r in results:
+        a = r.alert
+        if r.in_polygon:
+            loc = "in polygon"
+        elif a.polygon is not None:
+            loc = "in county/zone, not in polygon"
+        else:
+            loc = "in county/zone"
         print(f"[{a.severity}] {a.event}")
         print(f"  {a.headline}")
-        print(f"  Areas: {a.area_desc}\n")
+        print(f"  Areas: {a.area_desc}")
+        print(f"  Location: {loc}\n")
 
 
 def main() -> None:
@@ -138,10 +147,20 @@ def main() -> None:
         show_alerts = True
 
     if show_summary:
-        _show_summary(lat, lon, celsius=use_celsius)
+        show_alerts = True
+        try:
+            _show_summary(lat, lon, celsius=use_celsius)
+        except NwsApiError as e:
+            print(f"error: {e}", file=sys.stderr)
 
     if show_forecast:
-        _show_forecast(lat, lon, celsius=use_celsius)
+        try:
+            _show_forecast(lat, lon, celsius=use_celsius)
+        except NwsApiError as e:
+            print(f"error: {e}", file=sys.stderr)
 
     if show_alerts:
-        _show_alerts(lat, lon)
+        try:
+            _show_alerts(lat, lon)
+        except NwsApiError as e:
+            print(f"error: {e}", file=sys.stderr)

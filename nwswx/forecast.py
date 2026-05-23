@@ -4,8 +4,10 @@ from typing import Any
 import requests
 
 from nwswx.client import NwsPoint
+from nwswx.exceptions import NwsApiError
 
 BASE_URL = "https://api.weather.gov"
+REQUEST_TIMEOUT = 15
 
 
 @dataclass
@@ -132,8 +134,11 @@ def _parse_periods(periods: list[dict]) -> list[ForecastPeriod]:
 
 
 def get_forecast(point: NwsPoint) -> Forecast:
-    resp = requests.get(point.forecast_url, headers={"User-Agent": "nwswx/0.1.0"})
-    resp.raise_for_status()
+    try:
+        resp = requests.get(point.forecast_url, headers={"User-Agent": "nwswx/0.1.0"}, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise NwsApiError(f"Failed to get forecast from NWS: {e}") from e
     data = resp.json()
     props = data["properties"]
     return Forecast(
@@ -144,8 +149,11 @@ def get_forecast(point: NwsPoint) -> Forecast:
 
 
 def get_hourly_forecast(point: NwsPoint) -> Forecast:
-    resp = requests.get(point.forecast_hourly_url, headers={"User-Agent": "nwswx/0.1.0"})
-    resp.raise_for_status()
+    try:
+        resp = requests.get(point.forecast_hourly_url, headers={"User-Agent": "nwswx/0.1.0"}, timeout=REQUEST_TIMEOUT)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise NwsApiError(f"Failed to get hourly forecast from NWS: {e}") from e
     data = resp.json()
     props = data["properties"]
     return Forecast(
