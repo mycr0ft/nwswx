@@ -68,8 +68,23 @@ def _show_summary(lat: float, lon: float, celsius: bool = False) -> None:
         print(f"{d.symbol} {d.day_name}: {high}{low}  {d.conditions}{pop}")
 
 
-def _show_alerts(lat: float, lon: float) -> None:
-    results = get_relevant_alerts(lat, lon)
+def _show_sps(results: list) -> None:
+    print("Special Weather Statement in effect\n")
+    for r in results:
+        a = r.alert
+        if r.in_polygon:
+            loc = "in polygon"
+        elif a.polygon is not None:
+            loc = "in county/zone, not in polygon"
+        else:
+            loc = "in county/zone"
+        print(f"  {a.headline}")
+        print(f"  Areas: {a.area_desc}")
+        print(f"  Location: {loc}")
+        print(f"\n  {a.description}\n")
+
+
+def _show_alerts(results: list) -> None:
     if not results:
         print("No active alerts for this location.")
         return
@@ -84,7 +99,8 @@ def _show_alerts(lat: float, lon: float) -> None:
         print(f"[{a.severity}] {a.event}")
         print(f"  {a.headline}")
         print(f"  Areas: {a.area_desc}")
-        print(f"  Location: {loc}\n")
+        print(f"  Location: {loc}")
+        print(f"\n  {a.description}\n")
 
 
 def main() -> None:
@@ -159,8 +175,20 @@ def main() -> None:
         except NwsApiError as e:
             print(f"error: {e}", file=sys.stderr)
 
+    all_alerts = None
+    try:
+        all_alerts = get_relevant_alerts(lat, lon)
+    except NwsApiError:
+        pass
+
+    sps = [r for r in all_alerts if r.alert.event == "Special Weather Statement"] if all_alerts else []
+    other = [r for r in all_alerts if r.alert.event != "Special Weather Statement"] if all_alerts else []
+
+    if sps:
+        _show_sps(sps)
+
     if show_alerts:
-        try:
-            _show_alerts(lat, lon)
-        except NwsApiError as e:
-            print(f"error: {e}", file=sys.stderr)
+        if other:
+            _show_alerts(other)
+        elif not sps:
+            print("No active alerts for this location.")

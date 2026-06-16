@@ -20,6 +20,7 @@ class Alert:
     urgency: str
     event: str
     area_desc: str
+    description: str
     raw: dict[str, Any] = field(repr=False)
     polygon: Polygon | None = field(default=None)
 
@@ -49,6 +50,7 @@ def _parse_alerts(data: dict) -> list[Alert]:
                 urgency=props.get("urgency", ""),
                 event=props.get("event", ""),
                 area_desc=props.get("areaDesc", ""),
+                description=props.get("description") or props.get("messageBody", ""),
                 polygon=_parse_polygon(poly_str),
                 raw=f,
             )
