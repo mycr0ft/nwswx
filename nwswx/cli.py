@@ -68,6 +68,53 @@ def _show_summary(lat: float, lon: float, celsius: bool = False) -> None:
         print(f"{d.symbol} {d.day_name}: {high}{low}  {d.conditions}{pop}")
 
 
+_US_STATES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming",
+    "DC": "District of Columbia", "PR": "Puerto Rico", "GU": "Guam",
+    "VI": "U.S. Virgin Islands", "AS": "American Samoa", "MP": "Northern Mariana Islands",
+}
+
+
+def _state_name(code: str) -> str:
+    return _US_STATES.get(code.upper(), code) if code else code
+
+
+def _spoken_clean(text: str) -> str:
+    for ch in ("*", "\n", "\r", "\t", ":", ";"):
+        text = text.replace(ch, " ")
+    return " ".join(text.split())
+
+
+def _show_spoken_summary(lat: float, lon: float, celsius: bool = False) -> None:
+    pt = get_point(lat, lon)
+    fc = get_forecast(pt)
+    conv = _to_celsius if celsius else lambda x: x
+    print(f"Forecast for {pt.city}, {_state_name(pt.state)}.")
+    for d in summarize_forecast(fc):
+        parts = []
+        if d.high is not None:
+            parts.append(f"high of {conv(d.high)}")
+        if d.low is not None:
+            parts.append(f"low of {conv(d.low)}")
+        if d.pop is not None:
+            parts.append(f"{d.pop:.0f} percent chance of precipitation")
+        if d.conditions:
+            parts.append(d.conditions)
+        print(f"{d.day_name}, " + ", ".join(parts) + ".")
+
+
 def _show_sps(results: list) -> None:
     print("Special Weather Statement in effect\n")
     for r in results:
@@ -103,6 +150,26 @@ def _show_alerts(results: list) -> None:
         print(f"\n  {a.description}\n")
 
 
+def _show_sps_spoken(results: list) -> None:
+    for r in results:
+        a = r.alert
+        print("Special Weather Statement in effect.")
+        if a.headline:
+            print(_spoken_clean(a.headline) + ".")
+
+
+def _show_alerts_spoken(results: list) -> None:
+    if not results:
+        print("No active alerts for this location.")
+        return
+    for r in results:
+        a = r.alert
+        line = a.event
+        if a.headline:
+            line += ". " + _spoken_clean(a.headline)
+        print(line + ".")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nwswx", description="NWS Weather Forecast & Alerts")
     parser.add_argument("--lat", type=float, help="Latitude")
@@ -113,6 +180,7 @@ def main() -> None:
     parser.add_argument("--fahrenheit", action="store_true", help="Show temperatures in Fahrenheit")
     parser.add_argument("-f", "--forecast", action="store_true", help="Show full forecast")
     parser.add_argument("-s", "--summary", action="store_true", help="Show condensed 3-day summary")
+    parser.add_argument("--spoken-summary", action="store_true", help="Show TTS-friendly spoken summary")
     parser.add_argument("-a", "--alerts", action="store_true", help="Show alerts")
 
     args = parser.parse_args()
@@ -156,9 +224,10 @@ def main() -> None:
 
     show_forecast = args.forecast
     show_summary = args.summary
+    show_spoken_summary = args.spoken_summary
     show_alerts = args.alerts
 
-    if not show_forecast and not show_summary and not show_alerts:
+    if not show_forecast and not show_summary and not show_alerts and not show_spoken_summary:
         show_forecast = True
         show_alerts = True
 
@@ -166,6 +235,13 @@ def main() -> None:
         show_alerts = True
         try:
             _show_summary(lat, lon, celsius=use_celsius)
+        except NwsApiError as e:
+            print(f"error: {e}", file=sys.stderr)
+
+    if show_spoken_summary:
+        show_alerts = True
+        try:
+            _show_spoken_summary(lat, lon, celsius=use_celsius)
         except NwsApiError as e:
             print(f"error: {e}", file=sys.stderr)
 
@@ -185,10 +261,16 @@ def main() -> None:
     other = [r for r in all_alerts if r.alert.event != "Special Weather Statement"] if all_alerts else []
 
     if sps:
-        _show_sps(sps)
+        if show_spoken_summary:
+            _show_sps_spoken(sps)
+        else:
+            _show_sps(sps)
 
     if show_alerts:
         if other:
-            _show_alerts(other)
+            if show_spoken_summary:
+                _show_alerts_spoken(other)
+            else:
+                _show_alerts(other)
         elif not sps:
             print("No active alerts for this location.")

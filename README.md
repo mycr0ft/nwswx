@@ -53,6 +53,7 @@ nwswx -s                  # 3-day summary
 nwswx -f                  # full 7-day forecast
 nwswx -a                  # active alerts only
 nwswx -sa                 # summary + alerts
+nwswx --spoken-summary    # TTS-friendly spoken summary (no symbols/punctuation)
 
 # Temperature units
 nwswx -c                  # Celsius
