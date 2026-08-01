@@ -71,6 +71,21 @@ Forecast for Washington, DC
 No active alerts for this location.
 ```
 
+### Spoken summary example
+
+Plain English with no emojis, degree symbols, slashes, or percent signs —
+suitable for piping into [kokoro-tts](https://github.com/kokoro-tts/kokoro-tts).
+State names are written out in full and the forecast opens with the local
+day of week and hour at the queried location.
+
+```
+It's Saturday at four o'clock and here is the forecast for Washington, District of Columbia.
+This Afternoon, high of 91, low of 74, 17 percent chance of precipitation, Slight Chance Rain Showers.
+Sunday, high of 86, low of 73, 75 percent chance of precipitation, Showers And Thunderstorms Likely.
+Monday, high of 87, low of 72, 75 percent chance of precipitation, Slight Chance Showers And Thunderstorms.
+No active alerts for this location.
+```
+
 ## Python API
 
 ```python
