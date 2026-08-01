@@ -2,11 +2,12 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime, timezone
 
 from nwswx.alerts import get_relevant_alerts
 from nwswx.client import get_point
 from nwswx.exceptions import NwsApiError
-from nwswx.forecast import get_forecast, summarize_forecast
+from nwswx.forecast import Forecast, get_forecast, summarize_forecast
 from nwswx.geocode import GeocodeError, geocode
 
 CONFIG_DIR = os.path.expanduser("~/.config/nwswx.json")
@@ -91,6 +92,30 @@ def _state_name(code: str) -> str:
     return _US_STATES.get(code.upper(), code) if code else code
 
 
+_SPOKEN_HOURS = {
+    1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+    6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+    11: "eleven", 12: "twelve",
+}
+
+
+def _hour_spoken(hour: int) -> str:
+    h = hour % 12 or 12
+    return _SPOKEN_HOURS[h]
+
+
+def _now_spoken(fc: Forecast) -> str:
+    now = datetime.now().astimezone()
+    if fc.periods:
+        try:
+            ref = datetime.fromisoformat(fc.periods[0].start_time)
+            if ref.tzinfo is not None:
+                now = datetime.now(timezone.utc).astimezone(ref.tzinfo)
+        except (ValueError, TypeError):
+            pass
+    return f"It's {now.strftime('%A')} at {_hour_spoken(now.hour)} o'clock"
+
+
 def _spoken_clean(text: str) -> str:
     for ch in ("*", "\n", "\r", "\t", ":", ";"):
         text = text.replace(ch, " ")
@@ -101,7 +126,7 @@ def _show_spoken_summary(lat: float, lon: float, celsius: bool = False) -> None:
     pt = get_point(lat, lon)
     fc = get_forecast(pt)
     conv = _to_celsius if celsius else lambda x: x
-    print(f"Forecast for {pt.city}, {_state_name(pt.state)}.")
+    print(f"{_now_spoken(fc)} and here is the forecast for {pt.city}, {_state_name(pt.state)}.")
     for d in summarize_forecast(fc):
         parts = []
         if d.high is not None:
